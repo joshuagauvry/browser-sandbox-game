@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voxel Sandbox</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="start-screen">
+      <h1>Voxel Sandbox</h1>
+      <p>Explore, build, and reshape the world.</p>
+      <button id="play-button">Enter World</button>
+    </div>
+
+    <div id="hud">
+      <div id="crosshair"></div>
+      <div id="hotbar"></div>
+      <div id="instructions">
+        WASD — Move · Space — Jump / Ascend · Shift — Descend / Sprint<br />
+        Left click — Mine · Right click — Place · Q — Fly · 1–5 — Select block
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
