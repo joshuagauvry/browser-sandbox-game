@@ -1,6 +1,6 @@
-# Voxel Sandbox
+# Blockbound
 
-A 3D first-person sandbox game for the browser, built with Three.js and Vite.
+A side-view block platformer with a world you can reshape.
 
 ## Run locally
 
@@ -9,18 +9,16 @@ npm install
 npm run dev
 ```
 
-Open the URL printed by Vite, then click **Enter World**.
+Open the URL shown by Vite.
 
 ## Controls
 
-- **WASD** — Move
-- **Mouse** — Look
-- **Space** — Jump / ascend while flying
-- **Shift** — Descend while flying / sprint
-- **Q** — Toggle fly mode
+- **A/D** or **arrow keys** — Move
+- **Space**, **W**, or **Up** — Jump
 - **Left click** — Mine a block
-- **Right click** — Place a block
-- **1–5** or mouse wheel — Select a block
+- **Right click** — Place a selected block
+- **1–4** or mouse wheel — Select a block
+- **R** — Reset the level
 
 ## Build
 

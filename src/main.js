@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 
 const canvas = document.querySelector('#game');
 const startScreen = document.querySelector('#start-screen');
 const playButton = document.querySelector('#play-button');
 const hotbar = document.querySelector('#hotbar');
+const blockCount = document.querySelector('#block-count');
+const message = document.querySelector('#message');
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -12,32 +13,24 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87c7ee);
-scene.fog = new THREE.Fog(0x87c7ee, 30, 75);
+scene.background = new THREE.Color(0x79b7dd);
+scene.fog = new THREE.Fog(0x79b7dd, 28, 55);
 
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 150);
-camera.position.set(16, 12, 16);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
 
-const controls = new PointerLockControls(camera, document.body);
-playButton.addEventListener('click', () => controls.lock());
-controls.addEventListener('lock', () => startScreen.classList.add('hidden'));
-controls.addEventListener('unlock', () => startScreen.classList.remove('hidden'));
-
-scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x7b9a52, 2));
-const sun = new THREE.DirectionalLight(0xfff4d6, 2.2);
-sun.position.set(25, 45, 20);
+scene.add(new THREE.HemisphereLight(0xdff5ff, 0x607a46, 2.2));
+const sun = new THREE.DirectionalLight(0xfff1c7, 2.5);
+sun.position.set(-12, 25, 18);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = sun.shadow.camera.bottom = -35;
-sun.shadow.camera.right = sun.shadow.camera.top = 35;
+sun.shadow.camera.left = sun.shadow.camera.bottom = -30;
+sun.shadow.camera.right = sun.shadow.camera.top = 30;
 scene.add(sun);
 
 const colors = [
   { name: 'Grass', color: 0x64a94b },
   { name: 'Dirt', color: 0x8b6041 },
   { name: 'Stone', color: 0x777a7d },
-  { name: 'Wood', color: 0x9c7044 },
-  { name: 'Sand', color: 0xe0c778 },
+  { name: 'Brick', color: 0xc76b51 },
 ];
 let selected = 0;
 
@@ -45,130 +38,224 @@ colors.forEach((item, i) => {
   const slot = document.createElement('div');
   slot.className = 'slot' + (i === 0 ? ' selected' : '');
   slot.innerHTML = `<span>${i + 1}</span><i style="background:#${item.color.toString(16).padStart(6, '0')}"></i><b>${item.name}</b>`;
+  slot.addEventListener('click', () => selectBlock(i));
   hotbar.appendChild(slot);
 });
 
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 const materials = colors.map(item => new THREE.MeshLambertMaterial({ color: item.color }));
 const world = new Map();
+let placedCount = 0;
 
-function key(x, y, z) { return `${x},${y},${z}`; }
+function key(x, y) { return `${x},${y}`; }
 
-function noise(x, z) {
-  return Math.floor(4 + Math.sin(x * 0.32) * 2 + Math.cos(z * 0.28) * 2 + Math.sin((x + z) * 0.16));
-}
-
-function addBlock(x, y, z, type = 0) {
-  const id = key(x, y, z);
+function addBlock(x, y, type = 0, placed = false) {
+  const id = key(x, y);
   if (world.has(id)) return;
   const mesh = new THREE.Mesh(geometry, materials[type]);
-  mesh.position.set(x, y, z);
+  mesh.position.set(x, y, 0);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.userData.block = true;
   mesh.userData.type = type;
+  mesh.userData.placed = placed;
   scene.add(mesh);
   world.set(id, mesh);
+  if (placed) {
+    placedCount++;
+    blockCount.textContent = `Blocks: ${placedCount}`;
+  }
 }
 
 function removeBlock(mesh) {
   if (!mesh?.userData.block) return;
   const p = mesh.position;
-  world.delete(key(p.x, p.y, p.z));
+  if (mesh.userData.placed) {
+    placedCount = Math.max(0, placedCount - 1);
+    blockCount.textContent = `Blocks: ${placedCount}`;
+  }
+  world.delete(key(p.x, p.y));
   scene.remove(mesh);
 }
 
-for (let x = -24; x <= 24; x++) {
-  for (let z = -24; z <= 24; z++) {
-    const height = noise(x, z);
-    for (let y = -2; y <= height; y++) {
-      const type = y === height ? 0 : y > height - 3 ? 1 : 2;
-      addBlock(x, y, z, type);
-    }
-    if ((x * 17 + z * 31) % 29 === 0 && height > 4) {
-      for (let y = height + 1; y < height + 5; y++) addBlock(x, y, z, 3);
+function resetLevel() {
+  [...world.values()].forEach(mesh => scene.remove(mesh));
+  world.clear();
+  placedCount = 0;
+
+  for (let x = -12; x <= 12; x++) {
+    if (x > -2 && x < 3) continue;
+    addBlock(x, -3, x % 4 === 0 ? 2 : 0);
+  }
+
+  for (let x = 3; x <= 8; x++) addBlock(x, -1, 2);
+  for (let x = 9; x <= 15; x++) addBlock(x, 1, 0);
+  for (let x = 16; x <= 21; x++) addBlock(x, 3, 2);
+
+  for (let y = -2; y <= 4; y++) {
+    addBlock(-12, y, 2);
+  }
+
+  player.position.set(-9, 0, 0);
+  playerVelocity.set(0, 0, 0);
+  won = false;
+  message.classList.remove('show');
+  blockCount.textContent = 'Blocks: 0';
+}
+
+const player = new THREE.Group();
+const body = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.38, 0.65, 4, 8),
+  new THREE.MeshLambertMaterial({ color: 0xf4c542 })
+);
+body.castShadow = true;
+player.add(body);
+
+const eyeGeometry = new THREE.SphereGeometry(0.07);
+const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x242424 });
+const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+leftEye.position.set(-0.12, 0.35, 0.34);
+rightEye.position.set(0.12, 0.35, 0.34);
+player.add(leftEye, rightEye);
+scene.add(player);
+
+const portal = new THREE.Group();
+const portalRing = new THREE.Mesh(
+  new THREE.TorusGeometry(0.75, 0.12, 12, 32),
+  new THREE.MeshBasicMaterial({ color: 0x8df1ff })
+);
+portalRing.position.y = 0.8;
+portal.add(portalRing);
+const portalGlow = new THREE.PointLight(0x76efff, 2, 5);
+portal.add(portalGlow);
+portal.position.set(21, 4.6, 0);
+scene.add(portal);
+
+const backgroundBlocks = new THREE.Group();
+for (let x = -18; x <= 28; x += 3) {
+  for (let y = -5; y <= 9; y += 3) {
+    if ((x + y) % 6 === 0) {
+      const block = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: 0x82bca8 }));
+      block.position.set(x, y, -5);
+      block.scale.setScalar(0.8);
+      backgroundBlocks.add(block);
     }
   }
 }
+scene.add(backgroundBlocks);
 
-const raycaster = new THREE.Raycaster();
-const center = new THREE.Vector2(0, 0);
+let won = false;
+const playerVelocity = new THREE.Vector3();
+const keys = {};
 
-canvas.addEventListener('contextmenu', event => event.preventDefault());
+function selectBlock(index) {
+  selected = index;
+  [...hotbar.children].forEach((slot, i) => slot.classList.toggle('selected', i === index));
+}
+
+playButton.addEventListener('click', () => {
+  startScreen.classList.add('hidden');
+  canvas.focus();
+});
+
+addEventListener('keydown', event => {
+  keys[event.code] = true;
+  if (/^Digit[1-4]$/.test(event.code)) selectBlock(Number(event.code.slice(-1)) - 1);
+  if (event.code === 'KeyR') resetLevel();
+});
+addEventListener('keyup', event => { keys[event.code] = false; });
+addEventListener('wheel', event => selectBlock((selected + (event.deltaY > 0 ? 1 : -1) + colors.length) % colors.length));
+
+canvas.addEventListener('contextmenu', event => event.preventEvent?.());
 canvas.addEventListener('mousedown', event => {
-  if (!controls.isLocked) return;
-  raycaster.setFromCamera(center, camera);
-  raycaster.far = 7;
+  event.preventDefault();
+  if (startScreen.classList.contains('hidden') === false) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+  raycaster.far = 30;
   const hits = raycaster.intersectObjects([...world.values()], false);
-  if (!hits.length) return;
+  if (!hits.length) {
+    if (event.button === 2) {
+      const point = raycaster.ray.at(10, new THREE.Vector3());
+      addBlock(Math.round(point.x), Math.round(point.y), selected, true);
+    }
+    return;
+  }
 
   const hit = hits[0];
   if (event.button === 0) {
     removeBlock(hit.object);
   } else if (event.button === 2) {
-    const p = hit.object.position.clone().add(hit.face.normal);
-    if (p.distanceTo(camera.position) < 1.7) return;
-    addBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), selected);
+    const point = hit.point.clone().add(hit.face.normal.clone().multiplyScalar(0.5));
+    addBlock(Math.round(point.x), Math.round(point.y), selected, true);
   }
 });
 
-const keys = {};
-addEventListener('keydown', event => {
-  keys[event.code] = true;
-  if (/^Digit[1-5]$/.test(event.code)) selectBlock(Number(event.code.slice(-1)) - 1);
-  if (event.code === 'KeyQ') flying = !flying;
-});
-addEventListener('keyup', event => { keys[event.code] = false; });
+resetLevel();
 
-let selectedSlot = 0;
-function selectBlock(index) {
-  selected = selectedSlot = index;
-  [...hotbar.children].forEach((slot, i) => slot.classList.toggle('selected', i === index));
+function isSolid(x, y) {
+  return world.has(key(Math.round(x), Math.round(y)));
 }
 
-addEventListener('wheel', event => {
-  selectBlock((selected + (event.deltaY > 0 ? 1 : -1) + colors.length) % colors.length);
-});
-
-let flying = false;
-const velocity = new THREE.Vector3();
 let last = performance.now();
-
-function isSolid(pos) {
-  return world.has(key(Math.round(pos.x), Math.round(pos.y), Math.round(pos.z)));
-}
-
-function grounded() {
-  const p = camera.position;
-  return isSolid(new THREE.Vector3(p.x, p.y - 1.7, p.z));
-}
-
 function animate(now) {
   requestAnimationFrame(animate);
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
 
-  if (controls.isLocked) {
-    const speed = (keys.ShiftLeft ? 9 : 5.5) * dt;
-    const forward = Number(keys.KeyW) - Number(keys.KeyS);
-    const right = Number(keys.KeyD) - Number(keys.KeyA);
+  if (!startScreen.classList.contains('hidden') === false && !won) {
+    const left = keys.KeyA || keys.ArrowLeft;
+    const right = keys.KeyD || keys.ArrowRight;
+    const move = Number(right) - Number(left);
+    playerVelocity.x = THREE.MathUtils.damp(playerVelocity.x, move * 6, 12, dt);
 
-    controls.moveForward(forward * speed);
-    controls.moveRight(right * speed);
-
-    if (flying) {
-      velocity.y = (Number(keys.Space) - Number(keys.ShiftLeft)) * 7;
-      camera.position.y += velocity.y * dt;
-    } else {
-      velocity.y -= 18 * dt;
-      if (keys.Space && grounded()) velocity.y = 7;
-      camera.position.y += velocity.y * dt;
-      if (camera.position.y < 11) camera.position.y = 11;
+    const grounded = isSolid(player.position.x, player.position.y - 1.05);
+    if ((keys.Space || keys.KeyW || keys.ArrowUp) && grounded) {
+      playerVelocity.y = 8.2;
     }
 
-    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -23.5, 23.5);
-    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -23.5, 23.5);
+    playerVelocity.y -= 20 * dt;
+    player.position.x += playerVelocity.x * dt;
+    if (isSolid(player.position.x + (playerVelocity.x > 0 ? 0.42 : -0.42), player.position.y)) {
+      player.position.x -= playerVelocity.x * dt;
+      playerVelocity.x = 0;
+    }
+
+    player.position.y += playerVelocity.y * dt;
+    if (playerVelocity.y < 0 && isSolid(player.position.x, player.position.y - 0.95)) {
+      player.position.y = Math.round(player.position.y - 0.95) + 0.95;
+      playerVelocity.y = 0;
+    }
+    if (playerVelocity.y > 0 && isSolid(player.position.x, player.position.y + 0.95)) {
+      player.position.y = Math.round(player.position.y + 0.95) - 0.95;
+      playerVelocity.y = 0;
+    }
+
+    if (player.position.x < -17) player.position.x = -17;
+    if (player.position.y < -8) {
+      player.position.set(-9, 0, 0);
+      playerVelocity.set(0, 0, 0);
+    }
+
+    if (player.position.distanceTo(portal.position) < 1.35) {
+      won = true;
+      message.textContent = 'Portal reached! You win — keep building.';
+      message.classList.add('show');
+    }
+
+    portal.rotation.z += dt * 0.8;
   }
+
+  const cameraTarget = new THREE.Vector3(player.position.x, player.position.y + 1.5, 12);
+  camera.position.lerp(cameraTarget, 1 - Math.pow(0.001, dt));
+  camera.lookAt(player.position.x, player.position.y + 1, 0);
 
   renderer.render(scene, camera);
 }
